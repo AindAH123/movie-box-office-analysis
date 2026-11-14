@@ -1,25 +1,127 @@
 ---
 title: "Movie Box Office Analysis"
 format: html
+editor_options: 
+  chunk_output_type: console
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
 ```{r}
-1 + 1
+get_year_data <- function(year) {
+  url <- str_c("https://www.boxofficemojo.com/daily/", year, "/?view=year")
+  
+  read_html(url) |> 
+    html_node(css = "table") |> 
+    html_table(header = TRUE, fill = TRUE) |> 
+    rename(
+      date = Date,
+      day_num = 'Day #',
+      top10_gross = 'Top 10 Gross',
+      percent_yd = '%± YD',
+      percent_lw = '%± LW',
+      releases = 'Releases',
+      movie = '#1 Release',
+      daily_gross = Gross
+      ) |> 
+    
+    mutate(
+      #remove holidays from date + signs
+      date = str_extract(date, "^[A-Za-z]+ [A-Za-z]+ \\d"),
+      top10_gross = parse_number(top10_gross),
+      daily_gross = parse_number(daily_gross),
+      percent_yd = parse_number(percent_yd),
+      percent_lw = parse_number(percent_lw)
+      ) |> 
+    arrange(day_num)
+}
+#This function allows user to enter a four digit year, and will use that input to go to that years website
+get_year_data(2026)
 ```
 
-You can add options to executable code like this 
 
 ```{r}
-#| echo: false
-2 * 2
+
+library(tidyverse)
+library(rvest)
+
+#stores the link to week 1 data into url and reads it
+url <- "https://www.boxofficemojo.com/weekly/2026W01/?ref_=bo_wl_nav"
+web <-read_html(url)
+
+week1_raw <- web |> 
+  html_node(css = "table") |> 
+  html_table(header = TRUE, fill = TRUE)
+
+#clean columns names + rows
+clean_week1 <- week1_raw |> 
+  rename(
+    rank = 1,
+    last_week_rank = 2,
+    movie = 3,
+    weekly_gross = 4,
+    pct_change_lw = 5,
+    theaters = 6, 
+    theather_change = 7, 
+    avg_per_theather = 8,
+    total_gross = 9,
+    weeks_in_release = 10,
+    distributos = 11
+  ) |> 
+  mutate(
+    #show which week the data is comming from
+    week = "2026W01",
+    #replace "-" with NA value
+    last_week_rank = parse_number(na_if(last_week_rank, "-")),
+    pct_change_lw = parse_number(na_if(pct_change_lw, "-")),
+    theather_change = parse_number(na_if(theather_change, "-")),
+    weekly_gross = parse_number(weekly_gross),
+    total_gross = parse_number(total_gross)
+    )
+
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+
+```{r}
+#gets data from a week and cleans it
+scrape_week <- function(week, year = 2026){
+  url <-str_c("https://www.boxofficemojo.com/weekly/", year, "W", week, "/?ref_=bo_wl_nav")
+  
+  raw_table <- read_html(url) |> 
+    html_node(css = "table") |> 
+    html_table(header = TRUE, fill = TRUE)
+  
+  #renames columns
+  clean_table <-raw_table |> 
+    rename(
+      rank = 1,
+      last_week_rank = 2,
+      movie = 3,
+      weekly_gross = 4,
+      pct_change_lw = 5,
+      theaters = 6, 
+      theather_change = 7, 
+      avg_per_theather = 8,
+      total_gross = 9,
+      weeks_in_release = 10,
+      distributos = 11
+      ) |> 
+    mutate(
+      #creates a column showing which year and week the data is from
+      week = str_c(year, "W", week),
+      #replace "-" with NA value (cleaning the data)
+      last_week_rank = parse_number(na_if(last_week_rank, "-")),
+      pct_change_lw = parse_number(na_if(pct_change_lw, "-")),
+      theather_change = parse_number(na_if(theather_change, "-")),
+      weekly_gross = parse_number(weekly_gross),
+      total_gross = parse_number(total_gross)
+    )
+  clean_table
+}
+
+#use "" for weeks 01-09 example: scrape_week("01", 2026)
+week09 <-scrape_week("09", 2026)
+week11 <- scrape_week(10, 2026)
+week12 <- scrape_week(11, 2026)
+
+all_weeks <- bind_rows(week09, week11, week12)
+```
+
