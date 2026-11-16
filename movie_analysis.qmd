@@ -4,8 +4,14 @@ format: html
 editor_options: 
   chunk_output_type: console
 ---
+```{r}
+library(tidyverse)
+library(rvest)
+```
+
 
 ```{r}
+#| eval: false
 get_year_data <- function(year) {
   url <- str_c("https://www.boxofficemojo.com/daily/", year, "/?view=year")
   
@@ -25,7 +31,8 @@ get_year_data <- function(year) {
     
     mutate(
       #remove holidays from date + signs
-      date = str_extract(date, "^[A-Za-z]+ [A-Za-z]+ \\d"),
+      date = str_extract(date, "^[A-Za-z]+ [A-Za-z]+ \\d{1,2}"),
+      day_num = parse_number(day_num),
       top10_gross = parse_number(top10_gross),
       daily_gross = parse_number(daily_gross),
       percent_yd = parse_number(percent_yd),
@@ -39,10 +46,7 @@ get_year_data(2026)
 
 
 ```{r}
-
-library(tidyverse)
-library(rvest)
-
+#| eval: false
 #stores the link to week 1 data into url and reads it
 url <- "https://www.boxofficemojo.com/weekly/2026W01/?ref_=bo_wl_nav"
 web <-read_html(url)
@@ -60,11 +64,11 @@ clean_week1 <- week1_raw |>
     weekly_gross = 4,
     pct_change_lw = 5,
     theaters = 6, 
-    theather_change = 7, 
-    avg_per_theather = 8,
+    theater_change = 7, 
+    avg_per_theater = 8,
     total_gross = 9,
     weeks_in_release = 10,
-    distributos = 11
+    distributor = 11
   ) |> 
   mutate(
     #show which week the data is comming from
@@ -72,15 +76,20 @@ clean_week1 <- week1_raw |>
     #replace "-" with NA value
     last_week_rank = parse_number(na_if(last_week_rank, "-")),
     pct_change_lw = parse_number(na_if(pct_change_lw, "-")),
-    theather_change = parse_number(na_if(theather_change, "-")),
-    weekly_gross = parse_number(weekly_gross),
-    total_gross = parse_number(total_gross)
+    theater_change = parse_number(na_if(theater_change, "-")),
+   rank = parse_number(rank),
+weekly_gross = parse_number(weekly_gross),
+total_gross = parse_number(total_gross),
+theaters = parse_number(theaters),
+avg_per_theater = parse_number(avg_per_theater),
+weeks_in_release = parse_number(weeks_in_release)
     )
 
 ```
 
 
 ```{r}
+#| eval: false
 #gets data from a week and cleans it
 scrape_week <- function(week, year = 2026){
   url <-str_c("https://www.boxofficemojo.com/weekly/", year, "W", week, "/?ref_=bo_wl_nav")
@@ -98,11 +107,11 @@ scrape_week <- function(week, year = 2026){
       weekly_gross = 4,
       pct_change_lw = 5,
       theaters = 6, 
-      theather_change = 7, 
-      avg_per_theather = 8,
+      theater_change = 7, 
+      avg_per_theater = 8,
       total_gross = 9,
       weeks_in_release = 10,
-      distributos = 11
+      distributor = 11
       ) |> 
     mutate(
       #creates a column showing which year and week the data is from
@@ -110,18 +119,22 @@ scrape_week <- function(week, year = 2026){
       #replace "-" with NA value (cleaning the data)
       last_week_rank = parse_number(na_if(last_week_rank, "-")),
       pct_change_lw = parse_number(na_if(pct_change_lw, "-")),
-      theather_change = parse_number(na_if(theather_change, "-")),
-      weekly_gross = parse_number(weekly_gross),
-      total_gross = parse_number(total_gross)
+      theater_change = parse_number(na_if(theater_change, "-")),
+      rank = parse_number(rank),
+weekly_gross = parse_number(weekly_gross),
+total_gross = parse_number(total_gross),
+theaters = parse_number(theaters),
+avg_per_theater = parse_number(avg_per_theater),
+weeks_in_release = parse_number(weeks_in_release)
     )
   clean_table
 }
 
 #use "" for weeks 01-09 example: scrape_week("01", 2026)
-week09 <-scrape_week("09", 2026)
-week11 <- scrape_week(10, 2026)
-week12 <- scrape_week(11, 2026)
+week09 <- scrape_week("09", 2026)
+week10 <- scrape_week("10", 2026)
+week11 <- scrape_week("11", 2026)
 
-all_weeks <- bind_rows(week09, week11, week12)
+all_weeks <- bind_rows(week09, week10, week11)
 ```
 

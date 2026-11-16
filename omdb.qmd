@@ -1,0 +1,82 @@
+---
+title: "Movie Data Acquisition"
+format: html
+---
+
+## Project Overview
+
+This project collects movie ratings, genres, and box office earnings using the OMDb API. Our goal is to study which movie characteristics are associated with higher box office earnings.
+
+## Data Collection
+
+```{r}
+library(tidyverse)
+library(httr)
+
+omdb_api_key <- readLines("omdb_api_key.txt")
+
+movies <- c(
+  "Coco", "Titanic", "Avatar", "Barbie",
+  "Oppenheimer", "Inception", "Interstellar",
+  "Frozen", "Jaws", "Shrek", "Whiplash",
+  "Parasite"
+)
+
+get_movie_data <- function(movies) {
+  omdb <- tibble(
+    Title = character(),
+    Year = double(),
+    Genre = character(),
+    Metascore = double(),
+    imdbRating = double(),
+    BoxOffice = double()
+  )
+
+  for (i in 1:length(movies)) {
+    url <- str_c(
+      "https://www.omdbapi.com/?t=",
+      movies[i],
+      "&apikey=",
+      omdb_api_key
+    )
+
+    Sys.sleep(0.5)
+    onemovie <- GET(url)
+    details <- content(onemovie, "parse")
+
+    omdb[i, 1] <- details$Title
+    omdb[i, 2] <- parse_number(details$Year)
+    omdb[i, 3] <- details$Genre
+    omdb[i, 4] <- parse_number(details$Metascore)
+    omdb[i, 5] <- parse_number(details$imdbRating)
+    omdb[i, 6] <- parse_number(details$BoxOffice)
+  }
+
+  omdb
+}
+
+omdb <- get_movie_data(movies)
+omdb
+```
+
+## Export Cleaned Data
+
+```{r}
+write_csv(omdb, "movies_clean.csv")
+```
+
+## Variable Descriptions
+
+| Variable | Description |
+|---|---|
+| Title | Movie title |
+| Year | Release year |
+| Genre | Movie genre or genres |
+| Metascore | Metacritic score from 0 to 100 |
+| imdbRating | IMDb audience rating from 0 to 10 |
+| BoxOffice | Reported domestic box office earnings in US dollars |
+
+## Data Limitations
+
+The dataset contains 12 selected movies, not a random sample. It can be used for exploratory comparisons, but the results cannot be generalized to all movies.
+

@@ -1,0 +1,167 @@
+---
+title: "Weekly Movie Box Office Analysis"
+format: html
+---
+
+## Project Overview
+
+This project looks at how much money movies make each week and whether movies that earn more in their first week also make more money overall. We collected weekly box office records for the top 20 movies in the 2008 annual box office chart.
+
+## Data Source
+
+Data source: https://www.boxofficehistory.com/api
+
+We used the Box Office History API to collect movie information
+and weekly revenue records. We accessed the API using GET()
+and spaced requests by 0.5 seconds.
+
+
+```{r}
+library(tidyverse)
+library(httr)
+
+# weekly box office data for one movie
+get_weekly_movie <- function(movie_id) {
+
+  url <- str_c(
+    "https://www.boxofficehistory.com/api/v1/movies/",
+    movie_id, ".json"
+  )
+
+  movie <- content(GET(url), "parse")
+
+  weekly_data <- bind_rows(movie$weeks) |>
+  mutate(
+    movie_title = movie$title,
+    release_year = movie$year,
+    domestic_gross = movie$domestic
+  ) |>
+  arrange(week)
+
+  weekly_data
+}
+```
+
+```{r}
+# movies released in 2008
+year_data <- content(
+  GET("https://www.boxofficehistory.com/api/v1/years/2008.json"),
+  "parse"
+)
+
+# get IDs for the first 20 movies in the 2008 chart
+movie_ids <- map_chr(year_data$rows[1:20], "id")
+
+```
+
+```{r}
+# collect weekly data for all 20 movies
+all_movies <- map(movie_ids, function(id) {
+  Sys.sleep(0.5)
+  get_weekly_movie(id)
+}) |>
+  list_rbind()
+# correct incorrect dates in week 52 of 2008
+all_movies <- all_movies |>
+  mutate(
+    start = ifelse(
+      weekKey == "2008-52" & start == "2009-12-26",
+      "2008-12-26", start
+    ),
+    end = ifelse(
+      weekKey == "2008-52" & end == "2010-01-01",
+      "2009-01-01", end
+    )
+  )
+```
+
+```{r}
+# check how many weekly records each movie has
+all_movies |>
+  count(movie_title)
+```
+
+```{r}
+# check for missing values
+all_movies |>
+  summarize(
+    total_rows = n(),
+    missing_gross = sum(is.na(gross)),
+    missing_week = sum(is.na(week)),
+    missing_start = sum(is.na(start)),
+    missing_end = sum(is.na(end))
+  )
+```
+
+```{r}
+# save the weekly box office dataset
+write_csv(all_movies, "weekly_box_office_2008.csv")
+```
+
+
+## Data Cleaning
+
+We found 9 records with incorrect dates for the last week of 2008. We corrected these dates in our code. We also found 7 records with missing week numbers. We kept these records because they still contain box office earnings. Some appear to represent earnings before the movie's numbered weeks began.
+
+```{r}
+# summary with one row per movie
+movie_summary <- all_movies |>
+  filter(week == 1) |>
+  select(
+    movie_title,
+    release_year,
+    week1_gross = gross,
+    domestic_gross
+  ) |>
+  arrange(desc(domestic_gross))
+
+# save the movie summary
+write_csv(movie_summary, "movie_summary_2008.csv")
+
+movie_summary
+```
+
+## Data Limitations
+
+The dataset we have includes the top 20 movies from the 2008 box office chart so it is not a good representation of all the movies that came out that year. Also week 1 means the first numbered week in the dataset not the release week.
+## Data Collection Ethics
+
+The first idea we had was to scrape Box office Mojo, but due to limitation regarding permission for automated scraping we decided to change our direction and use Box Office History API. We added 0.5 second dealy between requests and cited our data source
+## Variable Descriptions
+
+### Weekly Box Office Dataset
+
+Each row represents one movie during one week.
+
+| Variable | Description |
+|---|---|
+| start | First date of the week |
+| end | Last date of the week |
+| weekKey | Calendar week identifier |
+| rank | Movie's box office ranking that week |
+| gross | Money earned during that week (USD) |
+| theaters | Number of theaters showing the movie |
+| average | Average weekly earnings per theater |
+| toDate | Total earnings up to that week |
+| week | Numbered week since release |
+| change | Percentage change from the previous week |
+| theaterChange | Change in the number of theaters |
+| movie_title | Movie title |
+| release_year | Movie release year |
+| domestic_gross | Total domestic box office earnings (USD) |
+
+### Movie Summary Dataset
+
+Each row represents one movie.
+
+| Variable | Description |
+|---|---|
+| movie_title | Movie title |
+| release_year | Movie release year |
+| week1_gross | Earnings during the first numbered week |
+| domestic_gross | Total domestic box office earnings (USD) |
+
+
+## GitHub Collaboration Reflection
+
+We used GitHub to keep track of the changes we made in the project. Isaac worked on the initial Box Office Mojo data collection functions, while I worked on collecting and cleaning data using the Box Office History API. GitHub helped us combine our work and keep everything organized in one repository. This project helped us become more familiar with GitHub and understand how version control can make working together easier. 
